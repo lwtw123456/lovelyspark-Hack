@@ -4,11 +4,16 @@ import time
 import shutil
 import base64
 import ctypes
+import hashlib
+import secrets
 import subprocess
 from pathlib import Path
 from ctypes import wintypes
 from memoryeditor import MemoryEditor
 
+MODULUS_BITS = 2048
+MODULUS_BYTES = MODULUS_BITS // 8
+SHA256_DIGEST_INFO_PREFIX = bytes.fromhex("3031300d060960864801650304020105000420")
 CRYPTPROTECT_UI_FORBIDDEN = 0x1
 SMBIOS_UUID_COMMAND = "(Get-CimInstance -Class Win32_ComputerSystemProduct).UUID"
 APP_DIR = Path(__file__).resolve().parent
@@ -92,7 +97,7 @@ def disable_update():
     }
     
     Path(SETTINGS_FILE).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("已禁用更新！")
+    print("更新已禁用！")
 
 def create_license():
     if LICENSE_FILE.is_file():
@@ -112,10 +117,18 @@ def create_license():
         "features": ["all"],
         "avatar": ""
     }
+
+    modulus = secrets.randbits(MODULUS_BITS) | (1 << (MODULUS_BITS - 1)) | 1
+    private_exponent = secrets.randbits(MODULUS_BITS) | (1 << (MODULUS_BITS - 1)) | 1
+    digest_info = SHA256_DIGEST_INFO_PREFIX + hashlib.sha256(b"ReverseIsFun").digest()
+    padding_length = MODULUS_BYTES - len(digest_info) - 3
+    encoded_message = b"\x00\x01" + b"\xff" * padding_length + b"\x00" + digest_info
+    signature_int = pow(int.from_bytes(encoded_message, "big"), private_exponent, modulus)
+    signature = signature_int.to_bytes(MODULUS_BYTES, "big")
     
     payload = {
         "license": base64.b64encode(json.dumps(license_data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).decode("ascii"),
-        "signature": "OvCibovWLwrLyjR6XLKPfIDN/RXJloweB2usDWnRZAV6jOz3kHo1oB3VAHkIbzkpe0tVHwiKEL+ZUtoqlowkippykhoMAiWGmZGAgZm0kzWzS0GtL0cazIUJDijIl4URFBGgkRu8YThmXpEP8spRbnTFEilfQexVBMTTXbPD32c2h/74VYxOmiqy2Ey1IZv+32dYMINmth2KwI3sNYO+GiwmkoVHaUx3raspBXxjEFD2HU5kO8jKbeiuQ1VVftoe5uDH9InSS7MM2Msj7IebRmIo+IQHGMmG5ZaDZre1BloYAWRa3gCNMxrH5TcATIHPkA1A9m4GNRjj/01zDHExSA=="
+        "signature": base64.b64encode(signature).decode()
     }
     
     APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
