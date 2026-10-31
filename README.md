@@ -1,5 +1,5 @@
 # lovelyspark-Hack
-Rust + Themida 逆向练习，实现了 lovelyspark 的破解，免授权使用所有功能。
+Rust + Themida 逆向练习，实现了 lovelyspark 的破解，免授权使用所有功能。实测 v0.3.16、v0.3.17。
 
 程序使用 Themida 壳，有反调试以及 RSA 验签相关函数的完整性检查。
 
